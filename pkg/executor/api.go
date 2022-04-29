@@ -26,10 +26,12 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gw123/glog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/zap"
+	"time"
 
 	fv1 "github.com/fission/fission/pkg/apis/core/v1"
 	ferror "github.com/fission/fission/pkg/error"
@@ -146,6 +148,14 @@ func (executor *Executor) writeResponse(w http.ResponseWriter, serviceName strin
 // invalidates the cache entry if the pod address was cached.
 func (executor *Executor) getServiceForFunction(ctx context.Context, fn *fv1.Function) (string, error) {
 	respChan := make(chan *createFuncServiceResponse)
+	glog.WithOTEL(ctx).Infof("getServiceForFunction %s start, ExecutorType:%s,Environment:%s",
+		fn.ObjectMeta.Name, fn.Spec.InvokeStrategy.ExecutionStrategy.ExecutorType, fn.Spec.Environment.Name)
+	if !executor.tokenBucket.PopToken() {
+		//	glog.WithOTEL(ctx).Warnf("getServiceForFunction, token bucket rate limit, name %s", fn.ObjectMeta.Name)
+		return "", ferror.MakeError(http.StatusTooManyRequests, "token bucket rate limit")
+	}
+
+	start := time.Now()
 	executor.requestChan <- &createFuncServiceRequest{
 		context:  ctx,
 		function: fn,
@@ -155,6 +165,7 @@ func (executor *Executor) getServiceForFunction(ctx context.Context, fn *fv1.Fun
 	if resp.err != nil {
 		return "", resp.err
 	}
+	glog.WithOTEL(ctx).Infof("getServiceForFunction %s end, duration %s", fn.ObjectMeta.Name, time.Now().Sub(start).String())
 	return resp.funcSvc.Address, resp.err
 }
 

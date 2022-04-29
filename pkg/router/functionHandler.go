@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	async_func "github.com/fission/fission/pkg/async-func"
 	"io"
 	"math/rand"
 	"net"
@@ -262,6 +263,13 @@ func (roundTripper *RetryingRoundTripper) RoundTrip(req *http.Request) (*http.Re
 			if roundTripper.funcHandler.function.Spec.InvokeStrategy.ExecutionStrategy.ExecutorType == fv1.ExecutorTypePoolmgr {
 				defer func(ctx context.Context, fn *fv1.Function, serviceURL *url.URL) {
 					go roundTripper.funcHandler.unTapService(fn, serviceURL) //nolint errcheck
+				}(ctx, roundTripper.funcHandler.function, roundTripper.serviceURL)
+			}
+			// add job mode
+			if roundTripper.funcHandler.function.Spec.InvokeStrategy.ExecutionStrategy.ExecutorType == fv1.ExecutorTypeContainer &&
+				roundTripper.funcHandler.function.Spec.InvokeStrategy.StrategyType == fv1.StrategyTypeFastfaas {
+				defer func(ctx context.Context, fn *fv1.Function, serviceURL *url.URL) {
+					go UnTapService(fn.Name, serviceURL.String()) //nolint errcheck
 				}(ctx, roundTripper.funcHandler.function, roundTripper.serviceURL)
 			}
 
@@ -507,6 +515,7 @@ func (fh functionHandler) handler(responseWriter http.ResponseWriter, request *h
 		Transport:    rrt,
 		ErrorHandler: fh.getProxyErrorHandler(start, rrt),
 		ModifyResponse: func(resp *http.Response) error {
+			async_func.AsyncCall(request.Context(), fh.function.Name, resp)
 			go fh.collectFunctionMetric(start, rrt, request, resp)
 			return nil
 		},
@@ -698,6 +707,12 @@ func (fh functionHandler) getServiceEntryFromExecutor(ctx context.Context) (serv
 func (fh functionHandler) getServiceEntry(ctx context.Context) (svcURL *url.URL, cacheHit bool, err error) {
 	if fh.function.Spec.InvokeStrategy.ExecutionStrategy.ExecutorType == fv1.ExecutorTypePoolmgr {
 		svcURL, err = fh.getServiceEntryFromExecutor(ctx)
+		return svcURL, false, err
+	}
+	// add job mode
+	if fh.function.Spec.InvokeStrategy.ExecutionStrategy.ExecutorType == fv1.ExecutorTypeContainer &&
+		fh.function.Spec.InvokeStrategy.StrategyType == fv1.StrategyTypeFastfaas {
+		svcURL, err = GetServiceForFunction(ctx, fh.function.Name)
 		return svcURL, false, err
 	}
 	// Check if service URL present in cache

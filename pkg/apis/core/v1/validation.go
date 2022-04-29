@@ -291,6 +291,7 @@ func (is InvokeStrategy) Validate() error {
 
 	switch is.StrategyType {
 	case StrategyTypeExecution: // no op
+	case StrategyTypeFastfaas:
 	default:
 		result = multierror.Append(result, MakeValidationErr(ErrorUnsupportedType, "InvokeStrategy.StrategyType", is.StrategyType, "not a valid valid strategy"))
 	}

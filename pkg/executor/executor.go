@@ -19,6 +19,7 @@ package executor
 import (
 	"context"
 	"fmt"
+	"github.com/fission/fission/pkg/token_bucket"
 	"net/http"
 	"os"
 	"strconv"
@@ -61,6 +62,7 @@ type (
 
 		requestChan chan *createFuncServiceRequest
 		fsCreateWg  sync.Map
+		tokenBucket *token_bucket.TokenBucket
 	}
 
 	createFuncServiceRequest struct {
@@ -86,6 +88,7 @@ func MakeExecutor(ctx context.Context, logger *zap.Logger, cms *cms.ConfigSecret
 		executorTypes: types,
 
 		requestChan: make(chan *createFuncServiceRequest),
+		tokenBucket: token_bucket.NewTokenBucket(20, 20),
 	}
 
 	// Run all informers

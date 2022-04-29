@@ -64,6 +64,7 @@ const (
 
 const (
 	StrategyTypeExecution = "execution"
+	StrategyTypeFastfaas  = "fastfaas"
 )
 
 const (

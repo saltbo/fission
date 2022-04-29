@@ -7,7 +7,9 @@ require (
 	github.com/Azure/azure-sdk-for-go v59.0.0+incompatible
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/Shopify/sarama v1.30.0
+	github.com/apache/rocketmq-client-go/v2 v2.1.0
 	github.com/blend/go-sdk v1.20211025.3 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.9.0
 	github.com/containerd/continuity v0.2.1 // indirect
 	github.com/dchest/uniuri v0.0.0-20200228104902-7aecb25e1fe5
 	github.com/docker/go-connections v0.4.0 // indirect
@@ -26,6 +28,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/graymeta/stow v0.2.7
+	github.com/gw123/glog v1.6.7
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.12
 	github.com/influxdata/influxdb v1.9.5
@@ -46,7 +49,7 @@ require (
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
 	go.opencensus.io v0.23.0

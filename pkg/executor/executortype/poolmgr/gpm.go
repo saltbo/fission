@@ -19,6 +19,7 @@ package poolmgr
 import (
 	"context"
 	"fmt"
+	"github.com/gw123/glog"
 	"math/rand"
 	"os"
 	"strconv"
@@ -652,6 +653,8 @@ func (gpm *GenericPoolManager) idleObjectReaper() {
 						)
 						reaper.CleanupKubeObject(ctx, gpm.logger, gpm.kubernetesClient, &fsvc.KubernetesObjects[i])
 						time.Sleep(50 * time.Millisecond)
+						glog.Infof("idleObjectReaper funcName:%s, addr:%s, duration:%ds, funcExecType: %s ,funcEnv:%s ",
+							fsvc.Function.Name, fsvc.Address, time.Since(startTime).Seconds(), fsvc.Executor, fsvc.Environment.Name)
 						gpm.fsCache.ReapTime(fsvc.Function.Name, fsvc.Address, time.Since(startTime).Seconds())
 					}
 				}
