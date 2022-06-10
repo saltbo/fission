@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gw123/glog"
 	"net/http"
 	"os"
 	"strconv"
@@ -170,7 +171,10 @@ func (ss *StorageService) downloadHandler(w http.ResponseWriter, r *http.Request
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
+	start := time.Now()
+	defer func() {
+		glog.WithErr(err).Infof("download duration fileid %s, %s", fileId, time.Now().Sub(start).Round(time.Millisecond).String())
+	}()
 	// Get the file (called "item" in stow's jargon), open it,
 	// stream it to response
 	err = ss.storageClient.copyFileToStream(fileId, w)
@@ -223,7 +227,8 @@ func (ss *StorageService) Start(port int, openTracingEnabled bool) {
 
 // Start runs storage service
 func Start(ctx context.Context, logger *zap.Logger, storage Storage, port int, openTracingEnabled bool) error {
-	enablePruner := true
+	// 禁止函数回收
+	enablePruner := false
 	// create a storage client
 	storageClient, err := MakeStowClient(logger, storage)
 	if err != nil {

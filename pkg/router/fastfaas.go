@@ -18,6 +18,10 @@ var fastfaasSvcAddr = ""
 
 func init() {
 	fastfaasSvcAddr = os.Getenv("FASTFAAS_SVC_ADDR")
+	if fastfaasSvcAddr == "" {
+		glog.Warn("get FASTFAAS_SVC_ADDR from env faild")
+		fastfaasSvcAddr = "http://fastfaas"
+	}
 }
 
 var Client *http.Client = &http.Client{

@@ -58,11 +58,18 @@ type (
 
 // MakeClient initializes and returns a Client instance.
 func MakeClient(logger *zap.Logger, executorURL string) *Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConns = 2000
+	transport.MaxConnsPerHost = 100
+	transport.MaxIdleConnsPerHost = 100
+
 	var hc *http.Client
 	if tracing.TracingEnabled(logger) {
-		hc = &http.Client{Transport: &ochttp.Transport{}}
+		hc = &http.Client{Transport: &ochttp.Transport{
+			Base: transport,
+		}}
 	} else {
-		hc = &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+		hc = &http.Client{Transport: otelhttp.NewTransport(transport)}
 	}
 
 	c := &Client{

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/fission/fission/pkg/token_bucket"
 	"html"
 	"io"
 	"net/http"
@@ -113,17 +114,46 @@ func (executor *Executor) getServiceForFunctionAPI(w http.ResponseWriter, r *htt
 		}
 	}
 
-	serviceName, err := executor.getServiceForFunction(ctx, fn)
-	if err != nil {
-		code, msg := ferror.GetHTTPError(err)
-		logger.Error("error getting service for function",
-			zap.Error(err),
-			zap.String("function", fn.ObjectMeta.Name),
-			zap.String("fission_http_error", msg))
-		http.Error(w, msg, code)
-		return
+	var serviceName string
+	for i := 0; i < 3; i++ {
+		isCreate := token_bucket.LockOrWait(fn.ObjectMeta.Name, func() {
+			serviceName, err = executor.getServiceForFunction(ctx, fn)
+			if err != nil {
+				code, msg := ferror.GetHTTPError(err)
+				logger.Error("error getting service for function",
+					zap.Error(err),
+					zap.String("function", fn.ObjectMeta.Name),
+					zap.String("fission_http_error", msg))
+				http.Error(w, msg, code)
+				return
+			}
+		})
+
+		if isCreate {
+			glog.WithOTEL(ctx).WithField("funcName", fn.ObjectMeta.Name).Infof("创建新的pod ,serverName %s", serviceName)
+			executor.writeResponse(w, serviceName, fn.ObjectMeta.Name)
+			return
+		} else {
+			requestsPerpod := fn.Spec.RequestsPerPod
+			if requestsPerpod == 0 {
+				requestsPerpod = 1
+			}
+			fsvc, active, err := et.GetFuncSvcFromPoolCache(ctx, fn, requestsPerpod)
+			// check if its a cache hit (check if there is already specialized function pod that can serve another request)
+			if err == nil {
+				// if a pod is already serving request then it already exists else validated
+				if active > 1 || et.IsValid(ctx, fsvc) {
+					// Cached, return svc address
+					executor.writeResponse(w, fsvc.Address, fn.ObjectMeta.Name)
+					glog.WithOTEL(ctx).WithField("funcName", fn.ObjectMeta.Name).Infof("等待创建新的pod结束 从缓冲中获取实例,serverName %s", fsvc.Address)
+					return
+				}
+				et.DeleteFuncSvcFromCache(ctx, fsvc)
+				active--
+			}
+			glog.WithOTEL(ctx).WithField("funcName", fn.ObjectMeta.Name).Infof("等待创建新的pod结束 从缓冲中获取实例失败开启下一轮循环")
+		}
 	}
-	executor.writeResponse(w, serviceName, fn.ObjectMeta.Name)
 }
 
 func (executor *Executor) writeResponse(w http.ResponseWriter, serviceName string, fnName string) {

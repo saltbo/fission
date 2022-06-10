@@ -19,6 +19,7 @@ package fscache
 import (
 	"context"
 	"fmt"
+	"github.com/fission/fission/pkg/token_bucket"
 	"sync"
 	"time"
 
@@ -229,6 +230,7 @@ func (fsc *FunctionServiceCache) AddFunc(ctx context.Context, fsvc FuncSvc) {
 	fsvc.Atime = now
 
 	fsc.setFuncAlive(fsvc.Function.Name, string(fsvc.Function.UID), true)
+	token_bucket.SetFuncAliveNumInc(fsvc.Function.Name)
 }
 
 // SetCPUUtilizaton updates/sets CPUutilization in the pool cache
@@ -361,6 +363,7 @@ func (fsc *FunctionServiceCache) DeleteFunctionSvc(ctx context.Context, fsvc *Fu
 			zap.Error(err),
 		)
 	}
+	token_bucket.SetFuncAliveNumDec(fsvc.Function.Name)
 }
 
 func (fsc *FunctionServiceCache) SetCPUUtilization(key string, svcHost string, cpuUsage resource.Quantity) {
