@@ -19,13 +19,16 @@ package poolmgr
 import (
 	"context"
 	"fmt"
-	"github.com/gw123/glog"
 	"math/rand"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	k8sInformers "k8s.io/client-go/informers"
+
+	"github.com/gw123/glog"
 
 	"github.com/hashicorp/go-multierror"
 	"go.opentelemetry.io/otel/attribute"
@@ -153,6 +156,7 @@ func MakeGenericPoolManager(
 	}
 	gpm.podLister = podInformer.Lister()
 	gpm.podListerSynced = podInformer.Informer().HasSynced
+	go gpm.CheckPodStatus()
 
 	return gpm, nil
 }
@@ -213,6 +217,7 @@ func (gpm *GenericPoolManager) DeleteFuncSvcFromCache(ctx context.Context, fsvc 
 }
 
 func (gpm *GenericPoolManager) UnTapService(ctx context.Context, key string, svcHost string) {
+	glog.Infof("UnTapService key %s --  svcHost %s", key, svcHost)
 	otelUtils.SpanTrackEvent(ctx, "UnTapService",
 		attribute.KeyValue{Key: "key", Value: attribute.StringValue(key)},
 		attribute.KeyValue{Key: "svcHost", Value: attribute.StringValue(svcHost)})
@@ -442,12 +447,12 @@ func (gpm *GenericPoolManager) CleanupOldExecutorObjects(ctx context.Context) {
 		LabelSelector: labels.Set(map[string]string{fv1.EXECUTOR_TYPE: string(fv1.ExecutorTypePoolmgr)}).AsSelector().String(),
 	}
 
-	err := reaper.CleanupDeployments(ctx, gpm.logger, gpm.kubernetesClient, gpm.instanceID, listOpts)
+	err := reaper.CleanupDeployments(ctx, gpm.namespace, gpm.logger, gpm.kubernetesClient, gpm.instanceID, listOpts)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
-	err = reaper.CleanupPods(ctx, gpm.logger, gpm.kubernetesClient, gpm.instanceID, listOpts)
+	err = reaper.CleanupPods(ctx, gpm.namespace, gpm.logger, gpm.kubernetesClient, gpm.instanceID, listOpts)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -583,7 +588,7 @@ func (gpm *GenericPoolManager) idleObjectReaper() {
 			envList[env.ObjectMeta.UID] = struct{}{}
 		}
 
-		fns, err := gpm.fissionClient.CoreV1().Functions(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+		fns, err := gpm.fissionClient.CoreV1().Functions(gpm.namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			gpm.logger.Error("failed to get environment list", zap.Error(err))
 			continue
@@ -599,6 +604,8 @@ func (gpm *GenericPoolManager) idleObjectReaper() {
 			gpm.logger.Error("error reaping idle pods", zap.Error(err))
 			continue
 		}
+
+		glog.Infof("funcSvcs length %d", len(funcSvcs))
 
 		for i := range funcSvcs {
 			fsvc := funcSvcs[i]
@@ -629,11 +636,12 @@ func (gpm *GenericPoolManager) idleObjectReaper() {
 				}
 			}
 
+			glog.Infof("funcSvcs Atime %d , idlePodReapTIme %d", fsvc.Atime, idlePodReapTime)
 			if time.Since(fsvc.Atime) < idlePodReapTime {
 				continue
 			}
-			idleTime := (time.Since(fsvc.Atime) - idlePodReapTime).Seconds()
-			gpm.fsCache.IdleTime(fsvc.Name, fsvc.Address, idleTime)
+			//idleTime := (time.Since(fsvc.Atime) - idlePodReapTime).Seconds()
+			//gpm.fsCache.IdleTime(fsvc.Function.Name, fsvc.Address, idleTime)
 
 			go func() {
 				startTime := time.Now()
@@ -655,12 +663,65 @@ func (gpm *GenericPoolManager) idleObjectReaper() {
 						time.Sleep(50 * time.Millisecond)
 						glog.Infof("idleObjectReaper funcName:%s, addr:%s, duration:%ds, funcExecType: %s ,funcEnv:%s ",
 							fsvc.Function.Name, fsvc.Address, time.Since(startTime).Seconds(), fsvc.Executor, fsvc.Environment.Name)
-						gpm.fsCache.ReapTime(fsvc.Function.Name, fsvc.Address, time.Since(startTime).Seconds())
+						//gpm.fsCache.ReapTime(fsvc.Function.Name, fsvc.Address, time.Since(startTime).Seconds())
 					}
 				}
 			}()
 		}
 	}
+}
+
+func (gpm *GenericPoolManager) CheckPodStatus() {
+	informerFactory := k8sInformers.NewSharedInformerFactoryWithOptions(gpm.kubernetesClient, 0,
+		//k8sInformers.WithNamespace("fission-function"),
+		k8sInformers.WithNamespace(gpm.namespace),
+		k8sInformers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.LabelSelector = labels.Set(map[string]string{
+				"managed":      "false",
+				"executorType": "poolmgr",
+			}).AsSelector().String()
+			//options.FieldSelector = "status.phase=Running"
+		}))
+
+	podInfromer := informerFactory.Core().V1().Pods()
+	podInfromer.Informer().AddEventHandler(func() k8sCache.ResourceEventHandler {
+		return k8sCache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				pod, ok := obj.(*apiv1.Pod)
+				if !ok {
+					glog.Errorf("Obj 转pod 失败")
+					return
+				}
+				glog.Infof("add func instant Name:%s ,PodIp: %s, labels: %+v", pod.Name, pod.Status.PodIP, pod.Labels)
+			},
+			DeleteFunc: func(obj interface{}) {
+				pod, ok := obj.(*apiv1.Pod)
+				if !ok {
+					glog.Errorf("Obj 转pod 失败")
+					return
+				}
+				//glog.Infof("Del Name:%s ,PodIp: %s, labels: %+v", pod.Name, pod.Status.PodIP, pod.Labels)
+				//gpm.fsCache.TouchByAddress()
+
+				if fsvc, ok := gpm.fsCache.PodToFsvc.Load(pod.ObjectMeta.Name); ok {
+					fsvc, ok := fsvc.(*fscache.FuncSvc)
+					if ok {
+						ctx := context.Background()
+						gpm.fsCache.DeleteFunctionSvc(ctx, fsvc)
+						gpm.fsCache.DeleteEntry(fsvc)
+						gpm.fsCache.PodToFsvc.Delete(pod.ObjectMeta.Name)
+						glog.Infof("DeleteFunctionSvc:%s ,PodIp: %s, labels: %+v", pod.Name, pod.Status.PodIP, pod.Labels)
+					} else {
+						glog.Errorf("could not convert item from PodToFsvc", zap.String("key", pod.ObjectMeta.Name))
+					}
+				} else {
+					glog.Warnf("DeleteFunctionSvc not found :%s ,PodIp: %s", pod.Name, pod.Status.PodIP)
+				}
+			},
+		}
+	}())
+	stopCh := make(chan struct{})
+	podInfromer.Informer().Run(stopCh)
 }
 
 // WebsocketStartEventChecker checks if the pod has emitted a websocket connection start event

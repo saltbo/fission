@@ -295,17 +295,17 @@ func (caaf *Container) CleanupOldExecutorObjects(ctx context.Context) {
 		LabelSelector: labels.Set(map[string]string{fv1.EXECUTOR_TYPE: string(fv1.ExecutorTypeContainer)}).AsSelector().String(),
 	}
 
-	err := reaper.CleanupHpa(ctx, caaf.logger, caaf.kubernetesClient, caaf.instanceID, listOpts)
+	err := reaper.CleanupHpa(ctx, caaf.namespace, caaf.logger, caaf.kubernetesClient, caaf.instanceID, listOpts)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
-	err = reaper.CleanupDeployments(ctx, caaf.logger, caaf.kubernetesClient, caaf.instanceID, listOpts)
+	err = reaper.CleanupDeployments(ctx, caaf.namespace, caaf.logger, caaf.kubernetesClient, caaf.instanceID, listOpts)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
-	err = reaper.CleanupServices(ctx, caaf.logger, caaf.kubernetesClient, caaf.instanceID, listOpts)
+	err = reaper.CleanupServices(ctx, caaf.namespace, caaf.logger, caaf.kubernetesClient, caaf.instanceID, listOpts)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}

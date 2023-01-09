@@ -207,7 +207,7 @@ func (gp *GenericPool) updateCPUUtilizationSvc() {
 				if valArray, ok1 := value.([]interface{}); ok1 {
 					function, address := valArray[0], valArray[1]
 					gp.fsCache.SetCPUUtilizaton(function.(string), address.(string), p)
-					gp.logger.Info(fmt.Sprintf("updated function %s, address %s, cpuUsage %+v", function.(string), address.(string), p))
+					//gp.logger.Info(fmt.Sprintf("updated function %s, address %s, cpuUsage %+v", function.(string), address.(string), p))
 				}
 			}
 		}

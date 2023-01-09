@@ -141,7 +141,8 @@ func (deploy *NewDeploy) Run(ctx context.Context) {
 	if ok := k8sCache.WaitForCacheSync(ctx.Done(), deploy.deplListerSynced, deploy.svcListerSynced); !ok {
 		deploy.logger.Fatal("failed to wait for caches to sync")
 	}
-	go deploy.idleObjectReaper(ctx)
+	// 禁止fission修改 deployment 副本个数
+	// go deploy.idleObjectReaper(ctx)
 }
 
 // GetTypeName returns the executor type name.
@@ -308,17 +309,17 @@ func (deploy *NewDeploy) CleanupOldExecutorObjects(ctx context.Context) {
 		LabelSelector: labels.Set(map[string]string{fv1.EXECUTOR_TYPE: string(fv1.ExecutorTypeNewdeploy)}).AsSelector().String(),
 	}
 
-	err := reaper.CleanupHpa(ctx, deploy.logger, deploy.kubernetesClient, deploy.instanceID, listOpts)
+	err := reaper.CleanupHpa(ctx, deploy.namespace, deploy.logger, deploy.kubernetesClient, deploy.instanceID, listOpts)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
-	err = reaper.CleanupDeployments(ctx, deploy.logger, deploy.kubernetesClient, deploy.instanceID, listOpts)
+	err = reaper.CleanupDeployments(ctx, deploy.namespace, deploy.logger, deploy.kubernetesClient, deploy.instanceID, listOpts)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
-	err = reaper.CleanupServices(ctx, deploy.logger, deploy.kubernetesClient, deploy.instanceID, listOpts)
+	err = reaper.CleanupServices(ctx, deploy.namespace, deploy.logger, deploy.kubernetesClient, deploy.instanceID, listOpts)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -433,12 +434,12 @@ func (deploy *NewDeploy) fnCreate(ctx context.Context, fn *fv1.Function) (*fscac
 		return nil, errors.Wrapf(err, "error creating deployment %v", objName)
 	}
 
-	hpa, err := deploy.createOrGetHpa(ctx, objName, &fn.Spec.InvokeStrategy.ExecutionStrategy, depl, deployLabels, deployAnnotations)
-	if err != nil {
-		deploy.logger.Error("error creating HPA", zap.Error(err), zap.String("hpa", objName))
-		go cleanupFunc(ns, objName)
-		return nil, errors.Wrapf(err, "error creating the HPA %v", objName)
-	}
+	//hpa, err := deploy.createOrGetHpa(ctx, objName, &fn.Spec.InvokeStrategy.ExecutionStrategy, depl, deployLabels, deployAnnotations)
+	//if err != nil {
+	//	deploy.logger.Error("error creating HPA", zap.Error(err), zap.String("hpa", objName))
+	//	go cleanupFunc(ns, objName)
+	//	return nil, errors.Wrapf(err, "error creating the HPA %v", objName)
+	//}
 
 	kubeObjRefs := []apiv1.ObjectReference{
 		{
@@ -458,14 +459,14 @@ func (deploy *NewDeploy) fnCreate(ctx context.Context, fn *fv1.Function) (*fscac
 			ResourceVersion: svc.ObjectMeta.ResourceVersion,
 			UID:             svc.ObjectMeta.UID,
 		},
-		{
-			Kind:            "horizontalpodautoscaler",
-			Name:            hpa.ObjectMeta.Name,
-			APIVersion:      hpa.TypeMeta.APIVersion,
-			Namespace:       hpa.ObjectMeta.Namespace,
-			ResourceVersion: hpa.ObjectMeta.ResourceVersion,
-			UID:             hpa.ObjectMeta.UID,
-		},
+		//{
+		//	Kind:            "horizontalpodautoscaler",
+		//	Name:            hpa.ObjectMeta.Name,
+		//	APIVersion:      hpa.TypeMeta.APIVersion,
+		//	Namespace:       hpa.ObjectMeta.Namespace,
+		//	ResourceVersion: hpa.ObjectMeta.ResourceVersion,
+		//	UID:             hpa.ObjectMeta.UID,
+		//},
 	}
 
 	fsvc := &fscache.FuncSvc{
@@ -695,6 +696,9 @@ func (deploy *NewDeploy) fnDelete(ctx context.Context, fn *fv1.Function) error {
 
 // getObjName returns a unique name for kubernetes objects of function
 func (deploy *NewDeploy) getObjName(fn *fv1.Function) string {
+	// 直接返回函数名字
+	return fn.ObjectMeta.Name
+
 	// use meta uuid of function, this ensure we always get the same name for the same function.
 	uid := fn.ObjectMeta.UID[len(fn.ObjectMeta.UID)-17:]
 	var functionMetadata string

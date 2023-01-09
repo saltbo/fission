@@ -33,23 +33,9 @@ func LockOrWait(name string, callback func()) bool {
 		}
 		return false
 	} else {
-		var runOver bool
-
-		go func() {
-			time.Sleep(time.Second * 2)
-			if !runOver {
-				mCache.Delete(name)
-				runOver = true
-				close(tMu.ch)
-			}
-		}()
-
 		callback()
-		if !runOver {
-			mCache.Delete(name)
-			runOver = true
-			close(tMu.ch)
-		}
+		mCache.Delete(name)
+		close(tMu.ch)
 		return true
 	}
 }

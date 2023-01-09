@@ -70,8 +70,9 @@ func CleanupKubeObject(ctx context.Context, logger *zap.Logger, kubeClient *kube
 }
 
 // CleanupDeployments deletes deployment(s) for a given instanceID
-func CleanupDeployments(ctx context.Context, logger *zap.Logger, client *kubernetes.Clientset, instanceID string, listOps meta_v1.ListOptions) error {
-	deploymentList, err := client.AppsV1().Deployments(meta_v1.NamespaceAll).List(ctx, listOps)
+func CleanupDeployments(ctx context.Context, namespace string, logger *zap.Logger, client *kubernetes.Clientset, instanceID string, listOps meta_v1.ListOptions) error {
+	//deploymentList, err := client.AppsV1().Deployments(meta_v1.NamespaceAll).List(ctx, listOps)
+	deploymentList, err := client.AppsV1().Deployments(namespace).List(ctx, listOps)
 	if err != nil {
 		return err
 	}
@@ -97,8 +98,9 @@ func CleanupDeployments(ctx context.Context, logger *zap.Logger, client *kuberne
 }
 
 // CleanupPods deletes pod(s) for a given instanceID
-func CleanupPods(ctx context.Context, logger *zap.Logger, client *kubernetes.Clientset, instanceID string, listOps meta_v1.ListOptions) error {
-	podList, err := client.CoreV1().Pods(meta_v1.NamespaceAll).List(ctx, listOps)
+func CleanupPods(ctx context.Context, namespace string, logger *zap.Logger, client *kubernetes.Clientset, instanceID string, listOps meta_v1.ListOptions) error {
+	//podList, err := client.CoreV1().Pods(meta_v1.NamespaceAll).List(ctx, listOps)
+	podList, err := client.CoreV1().Pods(namespace).List(ctx, listOps)
 	if err != nil {
 		return err
 	}
@@ -124,8 +126,9 @@ func CleanupPods(ctx context.Context, logger *zap.Logger, client *kubernetes.Cli
 }
 
 // CleanupServices deletes service(s) for a given instanceID
-func CleanupServices(ctx context.Context, logger *zap.Logger, client *kubernetes.Clientset, instanceID string, listOps meta_v1.ListOptions) error {
-	svcList, err := client.CoreV1().Services(meta_v1.NamespaceAll).List(ctx, listOps)
+func CleanupServices(ctx context.Context, namespace string, logger *zap.Logger, client *kubernetes.Clientset, instanceID string, listOps meta_v1.ListOptions) error {
+	//svcList, err := client.CoreV1().Services(meta_v1.NamespaceAll).List(ctx, listOps)
+	svcList, err := client.CoreV1().Services(namespace).List(ctx, listOps)
 	if err != nil {
 		return err
 	}
@@ -151,8 +154,9 @@ func CleanupServices(ctx context.Context, logger *zap.Logger, client *kubernetes
 }
 
 // CleanupHpa deletes horizontal pod autoscaler(s) for a given instanceID
-func CleanupHpa(ctx context.Context, logger *zap.Logger, client *kubernetes.Clientset, instanceID string, listOps meta_v1.ListOptions) error {
-	hpaList, err := client.AutoscalingV1().HorizontalPodAutoscalers(meta_v1.NamespaceAll).List(ctx, listOps)
+func CleanupHpa(ctx context.Context, namespace string, logger *zap.Logger, client *kubernetes.Clientset, instanceID string, listOps meta_v1.ListOptions) error {
+	hpaList, err := client.AutoscalingV1().HorizontalPodAutoscalers(namespace).List(ctx, listOps)
+	//hpaList, err := client.AutoscalingV1().HorizontalPodAutoscalers(meta_v1.NamespaceAll).List(ctx, listOps)
 	if err != nil {
 		return err
 	}
@@ -187,7 +191,8 @@ func CleanupRoleBindings(ctx context.Context, logger *zap.Logger, client *kubern
 
 		logger.Debug("starting cleanupRoleBindings cycle")
 		// get all rolebindings ( just to be efficient, one call to kubernetes )
-		rbList, err := client.RbacV1().RoleBindings(meta_v1.NamespaceAll).List(ctx, meta_v1.ListOptions{})
+		//rbList, err := client.RbacV1().RoleBindings(meta_v1.NamespaceAll).List(ctx, meta_v1.ListOptions{})
+		rbList, err := client.RbacV1().RoleBindings(functionNs).List(ctx, meta_v1.ListOptions{})
 		if err != nil {
 			// something wrong, but next iteration hopefully succeeds
 			logger.Error("error listing role bindings in all namespaces", zap.Error(err))

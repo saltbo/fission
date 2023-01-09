@@ -68,7 +68,8 @@ func (c *Client) Build(ctx context.Context, req *builder.PackageBuildRequest) (*
 		return nil, errors.Wrap(err, "error marshaling json")
 	}
 
-	maxRetries := 20
+	// maxRetries := 20
+	maxRetries := 1
 	var resp *http.Response
 
 	for i := 0; i < maxRetries; i++ {

@@ -65,33 +65,35 @@ var (
 
 func getContainer(loc stow.Location, containerName string, cursor string) (stow.Container, error) {
 	// use location.Containers to find containers that match the prefix (container name)
-	cons, cursorNew, err := loc.Containers(containerName, cursor, 1)
-	if err != nil {
-		return nil, err
-	}
-	var con stow.Container
-	for _, v := range cons {
-		c, err := loc.Container(v.ID())
-		if err != nil {
-			return nil, err
-		}
-		if c.Name() == containerName {
-			con = cons[0]
-			break
-		}
-	}
-	if con == nil && !stow.IsCursorEnd(cursorNew) {
-		_, err := getContainer(loc, containerName, cursorNew)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return con, nil
+	//cons, cursorNew, err := loc.Containers(containerName, cursor, 1)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//var con stow.Container
+	//for _, v := range cons {
+	//	c, err := loc.Container(v.ID())
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	if c.Name() == containerName {
+	//		con = cons[0]
+	//		break
+	//	}
+	//}
+	//if con == nil && !stow.IsCursorEnd(cursorNew) {
+	//	_, err := getContainer(loc, containerName, cursorNew)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
+	con, err := loc.Container(containerName)
+	return con, err
 }
 
 func getOrCreateContainer(loc stow.Location, containerName string, cursor string) (stow.Container, error) {
 	con, err := loc.CreateContainer(containerName)
-	if err != nil && (os.IsExist(err) || strings.Contains(err.Error(), "BucketAlreadyOwnedByYou")) {
+	if err != nil && (os.IsExist(err) || strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") ||
+		strings.Contains(err.Error(), "BucketAlreadyExists")) {
 		con, err = getContainer(loc, containerName, stow.CursorStart)
 	}
 	if con == nil && err == nil {

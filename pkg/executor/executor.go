@@ -19,13 +19,14 @@ package executor
 import (
 	"context"
 	"fmt"
-	"github.com/fission/fission/pkg/token_bucket"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fission/fission/pkg/token_bucket"
 
 	"github.com/dchest/uniuri"
 	"github.com/pkg/errors"
@@ -86,9 +87,8 @@ func MakeExecutor(ctx context.Context, logger *zap.Logger, cms *cms.ConfigSecret
 		cms:           cms,
 		fissionClient: fissionClient,
 		executorTypes: types,
-
-		requestChan: make(chan *createFuncServiceRequest),
-		tokenBucket: token_bucket.NewTokenBucket(20, 20),
+		requestChan:   make(chan *createFuncServiceRequest),
+		tokenBucket:   token_bucket.NewTokenBucket(80, 40),
 	}
 
 	// Run all informers

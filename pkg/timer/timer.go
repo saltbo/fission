@@ -17,6 +17,9 @@ limitations under the License.
 package timer
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/robfig/cron"
 	"go.uber.org/zap"
 
@@ -135,6 +138,10 @@ func (timer *Timer) newCron(t fv1.TimeTrigger) *cron.Cron {
 		// with the addition of multi-tenancy, the users can create functions in any namespace. however,
 		// the triggers can only be created in the same namespace as the function.
 		// so essentially, function namespace = trigger namespace.
+		// 避免同时执行造成雪崩
+		randSecond := rand.Int31n(15)
+		timer.logger.Info("added rand second to run", zap.Int32("randSecond", randSecond))
+		time.Sleep(time.Duration(randSecond) * time.Second)
 		(*timer.publisher).Publish("", headers, utils.UrlForFunction(t.Spec.FunctionReference.Name, t.ObjectMeta.Namespace))
 	})
 	c.Start()

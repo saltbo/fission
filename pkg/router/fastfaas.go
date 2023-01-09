@@ -2,16 +2,17 @@ package router
 
 import (
 	"context"
-	"github.com/gw123/glog"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"golang.org/x/net/context/ctxhttp"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/gw123/glog"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"golang.org/x/net/context/ctxhttp"
 )
 
 var fastfaasSvcAddr = ""

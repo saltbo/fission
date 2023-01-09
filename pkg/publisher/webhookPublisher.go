@@ -18,11 +18,12 @@ package publisher
 
 import (
 	"bytes"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"go.uber.org/zap"
 )
@@ -116,6 +117,10 @@ func (p *WebhookPublisher) makeHTTPRequest(r *publishRequest) {
 	}
 	// Make the request
 	resp, err := client.Do(req)
+	// res
+	// resp.StatusCode
+	// redis.set(r.target, '')
+
 	if err != nil {
 		fields = append(fields, zap.Error(err), zap.Any("request", r))
 	} else {

@@ -22,6 +22,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gw123/glog"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -99,6 +101,7 @@ func (c *Cache) service() {
 				for addr := range values {
 					if values[addr].activeRequests < req.requestsPerPod && values[addr].currentCPUUsage.Cmp(values[addr].cpuLimit) < 1 {
 						// mark active
+						glog.Infof("cache activeRequests++ %s,--- %d ", req.function, values[addr].activeRequests)
 						values[addr].activeRequests++
 						if c.logger.Core().Enabled(zap.DebugLevel) {
 							otelUtils.LoggerWithTraceID(req.ctx, c.logger).Debug("Increase active requests with getValue", zap.String("function", req.function.(string)), zap.String("address", addr.(string)), zap.Int("activeRequests", values[addr].activeRequests))
@@ -115,6 +118,7 @@ func (c *Cache) service() {
 			}
 			req.responseChannel <- resp
 		case setValue:
+			glog.Infof("poolcache setValue function %s,address %s", req.function, req.address)
 			if _, ok := c.cache[req.function]; !ok {
 				c.cache[req.function] = make(map[interface{}]*value)
 			}
@@ -135,7 +139,7 @@ func (c *Cache) service() {
 					if debugLevel {
 						otelUtils.LoggerWithTraceID(req.ctx, c.logger).Debug("Reading active requests", zap.String("function", key1.(string)), zap.String("address", key2.(string)), zap.Int("activeRequests", value.activeRequests))
 					}
-					if value.activeRequests == 0 {
+					if value.activeRequests <= 0 {
 						if debugLevel {
 							otelUtils.LoggerWithTraceID(req.ctx, c.logger).Debug("Function service with no active requests", zap.String("function", key1.(string)), zap.String("address", key2.(string)), zap.Int("activeRequests", value.activeRequests))
 						}
@@ -153,8 +157,13 @@ func (c *Cache) service() {
 				c.cache[req.function][req.address].currentCPUUsage = req.cpuUsage
 			}
 		case markAvailable:
+			glog.Infof("poolcache markAvailable %v, %v, len %d",
+				req.function, req.address, len(c.cache))
+
 			if _, ok := c.cache[req.function]; ok {
+				glog.Infof("find function %s", c.cache[req.function])
 				if _, ok = c.cache[req.function][req.address]; ok {
+					glog.Infof("find function activeRequests %v", c.cache[req.function][req.address].activeRequests)
 					c.cache[req.function][req.address].activeRequests--
 					if c.logger.Core().Enabled(zap.DebugLevel) {
 						otelUtils.LoggerWithTraceID(req.ctx, c.logger).Debug("Decrease active requests", zap.String("function", req.function.(string)), zap.String("address", req.address.(string)), zap.Int("activeRequests", c.cache[req.function][req.address].activeRequests))

@@ -20,11 +20,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/fission/fission/pkg/token_bucket"
 	"html"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/fission/fission/pkg/token_bucket"
+
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gw123/glog"
@@ -32,7 +35,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/zap"
-	"time"
 
 	fv1 "github.com/fission/fission/pkg/apis/core/v1"
 	ferror "github.com/fission/fission/pkg/error"
@@ -42,6 +44,12 @@ import (
 
 func (executor *Executor) getServiceForFunctionAPI(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	defer func() {
+		if err := recover(); err != nil {
+			glog.WithOTEL(ctx).Errorf("getServiceForFunctionAPI panic %+v", err)
+		}
+	}()
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read request", http.StatusInternalServerError)
@@ -276,6 +284,7 @@ func (executor *Executor) unTapService(w http.ResponseWriter, r *http.Request) {
 	}
 	key := fmt.Sprintf("%v_%v", tapSvcReq.FnMetadata.UID, tapSvcReq.FnMetadata.ResourceVersion)
 	t := tapSvcReq.FnExecutorType
+	glog.Infof("unTapService, %+v", tapSvcReq.FnMetadata.Name, tapSvcReq.ServiceURL)
 	if t != fv1.ExecutorTypePoolmgr {
 		msg := fmt.Sprintf("Unknown executor type '%v'", t)
 		http.Error(w, html.EscapeString(msg), http.StatusBadRequest)
