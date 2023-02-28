@@ -300,7 +300,10 @@ func (gp *GenericPool) choosePod(ctx context.Context, newLabels map[string]strin
 			patch := fmt.Sprintf(`{"metadata":{"annotations":%v, "labels":%v}}`, string(annotationPatch), string(labelPatch))
 			logger.Info("relabel pod", zap.String("pod", patch))
 			newPod, err := gp.kubernetesClient.CoreV1().Pods(chosenPod.Namespace).Patch(ctx, chosenPod.Name, k8sTypes.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
-			if err != nil {
+			if err != nil && errors.Is(err, context.Canceled) {
+				// ending retry loop when the request canceled
+				return "", nil, errors.Errorf("failed to relabel pod: %s", err)
+			} else if err != nil {
 				logger.Error("failed to relabel pod", zap.Error(err), zap.String("pod", chosenPod.Name), zap.Duration("delay", expoDelay))
 				gp.readyPodQueue.Done(key)
 				gp.readyPodQueue.AddAfter(key, expoDelay)
@@ -491,7 +494,7 @@ func (gp *GenericPool) getFuncSvc(ctx context.Context, fn *fv1.Function) (*fscac
 		// Remove old versions function pods
 		for _, pod := range podList.Items {
 			// Delete pod no matter what status it is
-			gp.kubernetesClient.CoreV1().Pods(gp.namespace).Delete(ctx, pod.ObjectMeta.Name, metav1.DeleteOptions{}) //nolint errcheck
+			gp.kubernetesClient.CoreV1().Pods(gp.namespace).Delete(ctx, pod.ObjectMeta.Name, metav1.DeleteOptions{}) // nolint errcheck
 		}
 	}
 
