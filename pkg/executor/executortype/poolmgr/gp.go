@@ -302,6 +302,8 @@ func (gp *GenericPool) choosePod(ctx context.Context, newLabels map[string]strin
 			newPod, err := gp.kubernetesClient.CoreV1().Pods(chosenPod.Namespace).Patch(ctx, chosenPod.Name, k8sTypes.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
 			if err != nil && errors.Is(err, context.Canceled) {
 				// ending retry loop when the request canceled
+				gp.readyPodQueue.Done(key)
+				gp.readyPodQueue.AddAfter(key, expoDelay)
 				return "", nil, errors.Errorf("failed to relabel pod: %s", err)
 			} else if err != nil {
 				logger.Error("failed to relabel pod", zap.Error(err), zap.String("pod", chosenPod.Name), zap.Duration("delay", expoDelay))
