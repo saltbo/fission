@@ -1,0 +1,39 @@
+include:
+  - project: "serverless/ci-templates"
+    file: "/general.yaml"
+  - project: "serverless/ci-templates"
+    file: "/dind.yaml"
+
+stages:
+  - tag
+  - release
+
+autoTag:
+  stage: tag
+  only:
+    refs:
+      - /^release-.*/
+  script:
+    - export CURRENT_RELEASE_VERSION=$(echo ${CI_COMMIT_BRANCH} | sed 's/release-\(v[0-9\.]*\)-.*/\1/')
+    - git tag "${CURRENT_RELEASE_VERSION}.0-DEV-SNAPSHOT" -f
+    - git push ssh_origin "${CURRENT_RELEASE_VERSION}.0-DEV-SNAPSHOT" -f
+
+release:
+  stage: release
+  variables:
+#    DOCKER_REGISTRY: $CI_REGISTRY
+#    DOCKER_USERNAME: $CI_REGISTRY_USER
+#    DOCKER_PASSWORD: $CI_REGISTRY_PASSWORD
+    DOCKER_TLS_CERTDIR: ""
+    GIT_DEPTH: 0
+  only:
+    refs:
+      - tags
+  script: |
+    echo "$COSIGN_KEY" > cosign.key && \
+    docker run --rm --privileged \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $PWD:/go/src/gitlabee.chehejia.com/serverless/fission \
+      -w /go/src/gitlabee.chehejia.com/serverless/fission \
+      -e DOCKER_USERNAME -e DOCKER_PASSWORD -e DOCKER_REGISTRY -e COSIGN_PWD -e GOPROXY -e GOPRIVATE \
+      reg.chehejia.com/faas/goreleaser/goreleaser release --clean
