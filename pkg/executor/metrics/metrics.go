@@ -41,7 +41,7 @@ var (
 		},
 		functionLabels,
 	)
-	FuncError = promauto.NewCounterVec(
+	ColdStartsError = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "fission_function_cold_start_errors_total",
 			Help: "Count of fission cold start errors",
