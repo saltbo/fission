@@ -3,6 +3,8 @@ include:
     file: "/general.yaml"
   - project: "serverless/ci-templates"
     file: "/dind.yaml"
+  - project: "serverless/ci-templates"
+    file: "/danger.yaml"
 
 stages:
   - tag
