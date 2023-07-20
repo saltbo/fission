@@ -6,12 +6,8 @@ include:
   - project: "serverless/ci-templates"
     file: "/danger.yaml"
 
-stages:
-  - tag
-  - release
-
 autoTag:
-  stage: tag
+  stage: build
   only:
     refs:
       - /^release-.*/
@@ -21,7 +17,7 @@ autoTag:
     - git push ssh_origin "${CURRENT_RELEASE_VERSION}.0-DEV-SNAPSHOT" -f
 
 release:
-  stage: release
+  stage: deploy
   variables:
 #    DOCKER_REGISTRY: $CI_REGISTRY
 #    DOCKER_USERNAME: $CI_REGISTRY_USER
