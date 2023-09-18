@@ -105,7 +105,7 @@ func sendRequest(logger *zap.Logger, ctx context.Context, httpClient *http.Clien
 		}
 
 		// skip retry and return directly due to context deadline exceeded
-		if err == context.DeadlineExceeded {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			msg := "error specializing function pod, either increase the specialization timeout for function or check function pod log would help."
 			err = errors.Wrap(err, msg)
 			logger.Error(msg, zap.Error(err), zap.String("url", url))
