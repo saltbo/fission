@@ -252,6 +252,15 @@ func (gp *GenericPool) choosePod(ctx context.Context, newLabels map[string]strin
 			logger.Error("readypod controller is not running")
 			return "", nil, errors.New("readypod controller is not running")
 		}
+
+		if err := ctx.Err(); err != nil {
+			logger.Error("context error after got ready pod", zap.Error(ctx.Err()))
+			gp.readyPodQueue.Done(key)
+			// NOTE: put the ready pod right back into the queue for reusing
+			gp.readyPodQueue.Add(key)
+			return "", nil, err
+		}
+
 		key = item.(string)
 		logger.Debug("got key from the queue", zap.String("key", key))
 		namespace, name, err := cache.SplitMetaNamespaceKey(key)

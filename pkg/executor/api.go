@@ -124,6 +124,12 @@ func (executor *Executor) getServiceForFunctionAPI(w http.ResponseWriter, r *htt
 
 	var serviceName string
 	for i := 0; i < 3; i++ {
+		if ctx.Err() != nil {
+			logger.Error("context error before retrying getServiceForFunction", zap.Error(ctx.Err()))
+			http.Error(w, "client closed", 499)
+			return
+		}
+
 		isCreate := token_bucket.LockOrWait(fn.ObjectMeta.Name, func() {
 			serviceName, err = executor.getServiceForFunction(ctx, fn)
 			if err != nil {
