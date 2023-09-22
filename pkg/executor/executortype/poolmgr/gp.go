@@ -207,7 +207,7 @@ func (gp *GenericPool) updateCPUUtilizationSvc() {
 				if valArray, ok1 := value.([]interface{}); ok1 {
 					function, address := valArray[0], valArray[1]
 					gp.fsCache.SetCPUUtilizaton(function.(string), address.(string), p)
-					//gp.logger.Info(fmt.Sprintf("updated function %s, address %s, cpuUsage %+v", function.(string), address.(string), p))
+					// gp.logger.Info(fmt.Sprintf("updated function %s, address %s, cpuUsage %+v", function.(string), address.(string), p))
 				}
 			}
 		}
@@ -253,6 +253,7 @@ func (gp *GenericPool) choosePod(ctx context.Context, newLabels map[string]strin
 			return "", nil, errors.New("readypod controller is not running")
 		}
 
+		key = item.(string)
 		if err := ctx.Err(); err != nil {
 			logger.Error("context error after got ready pod", zap.Error(ctx.Err()))
 			gp.readyPodQueue.Done(key)
@@ -261,7 +262,6 @@ func (gp *GenericPool) choosePod(ctx context.Context, newLabels map[string]strin
 			return "", nil, err
 		}
 
-		key = item.(string)
 		logger.Debug("got key from the queue", zap.String("key", key))
 		namespace, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
@@ -495,7 +495,7 @@ func (gp *GenericPool) getFuncSvc(ctx context.Context, fn *fv1.Function) (*fscac
 		// Remove old versions function pods
 		for _, pod := range podList.Items {
 			// Delete pod no matter what status it is
-			gp.kubernetesClient.CoreV1().Pods(gp.namespace).Delete(ctx, pod.ObjectMeta.Name, metav1.DeleteOptions{}) //nolint errcheck
+			gp.kubernetesClient.CoreV1().Pods(gp.namespace).Delete(ctx, pod.ObjectMeta.Name, metav1.DeleteOptions{}) // nolint errcheck
 		}
 	}
 
